@@ -1,0 +1,1 @@
+// Responsible for generating specific five-channel based sounds, that made NES chiptunes so recognizable
