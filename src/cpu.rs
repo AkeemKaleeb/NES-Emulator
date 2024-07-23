@@ -32,6 +32,7 @@ pub struct CPU {
     memory: [u8; 0xFFFF],
 }
 
+#[derive(Clone)]
 pub struct Flags {
     pub bits: u8
     /* 
@@ -108,60 +109,10 @@ impl CPU {
         }
     }
 
-    // Set Zero and Negative Flags from result
-    fn update_flags(&mut self, result: u8) {
-        // Set Zero
-        self.flags.set_zero(result == 0);
-
-        // Set Negative
-        self.flags.set_negative(result & 0b1000_0000 != 0);
-    }
-
-    // Get the the address of operands
-    fn get_operand_address(&self, mode: &AddressingMode) -> u16 {
-        match mode {
-            AddressingMode::Immediate => self.register_pc,
-            AddressingMode::ZeroPage => self.mem_read(self.register_pc) as u16,
-            AddressingMode::Absolute => self.mem_read_16(self.register_pc),
-            AddressingMode::ZeroPageX => {
-                let pos = self.mem_read(self.register_pc);
-                let addr = pos.wrapping_add(self.register_x) as u16;
-                return addr;
-            }
-            AddressingMode::ZeroPageY => {
-                let pos = self.mem_read(self.register_pc);
-                let addr = pos.wrapping_add(self.register_y) as u16;
-                return addr;
-            }
-            AddressingMode::AbsoluteX => {
-                let base = self.mem_read_16(self.register_pc);
-                let addr = base.wrapping_add(self.register_x as u16);
-                return addr;
-            }
-            AddressingMode::AbsoluteY => {
-                let base = self.mem_read_16(self.register_pc);
-                let addr = base.wrapping_add(self.register_y as u16);
-                return addr;
-            }
-            AddressingMode::IndirectX => {
-                let base = self.mem_read(self.register_pc);
-                let ptr: u8 = (base as u8).wrapping_add(self.register_x);
-                let lo = self.mem_read(ptr as u16);
-                let hi = self.mem_read(ptr.wrapping_add(1) as u16);
-                return (hi as u16) << 8 | (lo as u16);
-            }
-            AddressingMode::IndirectY => {
-                let base = self.mem_read(self.register_pc);
-                let lo = self.mem_read(base as u16);
-                let hi = self.mem_read((base as u8).wrapping_add(1) as u16);
-                let deref_base = (hi as u16) << 8 | (lo as u16);
-                let deref = deref_base.wrapping_add(self.register_y as u16);
-                return deref;
-            }
-            AddressingMode::NoneAddressing => {
-                panic!("Mode {:?} is not supported", mode);
-            }
-        }
+    // Load program into memory starting at PROM location 0x8000
+    pub fn load(&mut self, program: Vec<u8>) {
+        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_16(0xFFFC, 0x8000);
     }
 
     // Reset the Emulator to initial state and reset address
@@ -172,12 +123,6 @@ impl CPU {
         self.flags.bits = 0;
 
         self.register_pc = self.mem_read_16(0xFFFC)
-    }
-
-    // Load program into memory starting at PROM location 0x8000
-    pub fn load(&mut self, program: Vec<u8>) {
-        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_16(0xFFFC, 0x8000);
     }
 
     // Decode and execute program file
@@ -307,6 +252,91 @@ impl CPU {
         self.update_flags(compare_with.wrapping_sub(data));
     }
 
+    // Get the the address of operands
+    fn get_operand_address(&self, mode: &AddressingMode) -> u16 {
+        match mode {
+            AddressingMode::Immediate => self.register_pc,
+            AddressingMode::ZeroPage => self.mem_read(self.register_pc) as u16,
+            AddressingMode::Absolute => self.mem_read_16(self.register_pc),
+            AddressingMode::ZeroPageX => {
+                let pos = self.mem_read(self.register_pc);
+                let addr = pos.wrapping_add(self.register_x) as u16;
+                return addr;
+            }
+            AddressingMode::ZeroPageY => {
+                let pos = self.mem_read(self.register_pc);
+                let addr = pos.wrapping_add(self.register_y) as u16;
+                return addr;
+            }
+            AddressingMode::AbsoluteX => {
+                let base = self.mem_read_16(self.register_pc);
+                let addr = base.wrapping_add(self.register_x as u16);
+                return addr;
+            }
+            AddressingMode::AbsoluteY => {
+                let base = self.mem_read_16(self.register_pc);
+                let addr = base.wrapping_add(self.register_y as u16);
+                return addr;
+            }
+            AddressingMode::IndirectX => {
+                let base = self.mem_read(self.register_pc);
+                let ptr: u8 = (base as u8).wrapping_add(self.register_x);
+                let lo = self.mem_read(ptr as u16);
+                let hi = self.mem_read(ptr.wrapping_add(1) as u16);
+                return (hi as u16) << 8 | (lo as u16);
+            }
+            AddressingMode::IndirectY => {
+                let base = self.mem_read(self.register_pc);
+                let lo = self.mem_read(base as u16);
+                let hi = self.mem_read((base as u8).wrapping_add(1) as u16);
+                let deref_base = (hi as u16) << 8 | (lo as u16);
+                let deref = deref_base.wrapping_add(self.register_y as u16);
+                return deref;
+            }
+            AddressingMode::NoneAddressing => {
+                panic!("Mode {:?} is not supported", mode);
+            }
+        }
+    }
+
+    // Push Value to Stack
+    fn stack_push(&mut self, data: u8) {
+        self.mem_write((STACK as u16) + self.register_sp as u16, data);
+        self.register_sp = self.register_sp.wrapping_sub(1);
+    }
+
+    // Pop Value from the Stack
+    fn stack_pop(&mut self) -> u8 {
+        self.register_sp = self.register_sp.wrapping_add(1);
+
+        return self.mem_read((STACK as u16) + self.register_sp as u16)
+    }
+
+    // Push 2 Byte Value to the Stack
+    fn stack_push_16(&mut self, data: u16) {
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xFF) as u8;
+        self.stack_push(hi);
+        self.stack_push(lo);
+    }
+
+    // Pop 2 Byte Value from the Stack
+    fn stack_pop_16(&mut self) -> u16 {
+        let lo = self.stack_pop() as u16;
+        let hi = self.stack_pop() as u16;
+
+        return hi << 8 | lo
+    }
+
+    // Set Zero and Negative Flags from result
+    fn update_flags(&mut self, result: u8) {
+        // Set Zero
+        self.flags.set_zero(result == 0);
+
+        // Set Negative
+        self.flags.set_negative(result & 0b1000_0000 != 0);
+    }
+
     /*           */
     /*  Opcodes  */
     /*           */
@@ -391,7 +421,10 @@ impl CPU {
 
     // Force the generation of an interrupt request, pushing status to the stack and loading IRQ interrupt vector at $FFFE/F in the PC
     fn brk(&mut self) {
-        todo!("Implement Stack");
+        self.stack_push_16(self.register_pc);
+        self.stack_push(self.flags.bits);
+        self.register_pc = self.mem_read_16(0xFFFE);
+        self.flags.set_bflag(true);
     }
 
     // Branch if the overflow is not set adding a displacement to the program counter
@@ -510,7 +543,9 @@ impl CPU {
 
     // Jump to the subroutine and store current address on the stack
     fn jsr(&mut self) {
-        todo!("Implement Stack");
+        self.stack_push_16(self.register_pc + 1);
+        let addr = self.mem_read_16(self.register_pc);
+        self.register_pc = addr;
     }
     
     // Load the A register using a byte of memory
@@ -580,23 +615,28 @@ impl CPU {
 
     // Push A Register to the stack
     fn pha(&mut self) {
-        todo!("Implement Stack");
-        //self.stack_push(self.register_a);
+        self.stack_push(self.register_a);
     }
 
     // Push a copy of the status flags onto the stack
     fn php(&mut self) {
-        todo!("Implement Stack");
+        let mut flags = self.flags.clone();
+        flags.set_bflag(true);
+        flags.set_b2flag(true);
+        self.stack_push(flags.bits);
     }
 
     // Pull an 8 bit value from the stack into the A register
     fn pla(&mut self) {
-        todo!("Implement Stack");
+        let data = self.stack_pop();
+        self.register_a = data;
     }
 
     // Pull an 8 bit value from the stack into the processor flags
     fn plp(&mut self) {
-        todo!("Implement Stack");
+        self.flags.bits = self.stack_pop();
+        self.flags.set_bflag(false);
+        self.flags.set_b2flag(false);
     }
 
     // Rotate A Register bits to the left
@@ -659,18 +699,16 @@ impl CPU {
 
     // Return from an Interrupt processing routine to the address stored on the stack
     fn rti(&mut self) {
-        todo!("Implement Stack");
-        todo!("Implement Break Flag");
-        //self.flags.bits = self.stack_pop();
-        //self.flags.set_bflag(true);
+        self.flags.bits = self.stack_pop();
+        self.flags.set_bflag(false);
+        self.flags.set_b2flag(true);
 
-        //self.register_pc = self.stack_pop_u16()
+        self.register_pc = self.stack_pop_16()
     }
 
     // Return from a subroutine to the pointer stored on the stack
     fn rts(&mut self) {
-        todo!("Implement Stack")
-        //self.program_counter = self.stack_pop_u16() + 1;
+        self.register_pc = self.stack_pop_16() + 1;
     }
 
     // Add value to register A with the carry bit
@@ -769,6 +807,7 @@ impl Flags {
     fn int(&self) -> bool       { self.get_bit(2) }
     fn decimal(&self) -> bool   { self.get_bit(3) }
     fn bflag(&self) -> bool     { self.get_bit(4) }
+    fn b2flag(&self) -> bool    { self.get_bit(5) }
     fn overflow(&self) -> bool  { self.get_bit(6) }
     fn negative(&self) -> bool  { self.get_bit(7) }
 
@@ -777,6 +816,7 @@ impl Flags {
     fn set_int(&mut self, value: bool)          { self.set_bit(2, value); }
     fn set_decimal(&mut self, value: bool)      { self.set_bit(3, value); }
     fn set_bflag(&mut self, value: bool)        { self.set_bit(4, value); }
+    fn set_b2flag(&mut self, value: bool)       { self.set_bit(5, value); }
     fn set_overflow(&mut self, value: bool)     { self.set_bit(6, value); }
     fn set_negative(&mut self, value: bool)     { self.set_bit(7, value); }
 }
