@@ -61,7 +61,7 @@ pub enum AddressingMode {
     NoneAddressing,
 }
 
-trait Mem {
+pub trait Mem {
     // Read the data byte at a spectific adddress
     fn mem_read(&self, addr: u16) -> u8;
 
@@ -111,8 +111,8 @@ impl CPU {
 
     // Load program into memory starting at PROM location 0x8000
     pub fn load(&mut self, program: Vec<u8>) {
-        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_16(0xFFFC, 0x8000);
+        self.memory[0x0600 .. (0x0600 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_16(0xFFFC, 0x0600);
     }
 
     // Reset the Emulator to initial state and reset address
@@ -125,11 +125,17 @@ impl CPU {
         self.register_pc = self.mem_read_16(0xFFFC)
     }
 
-    // Decode and execute program file
     pub fn run(&mut self) {
+        self.run_with_callback(|_| {});
+    }
+
+    // Decode and execute program file
+    pub fn run_with_callback<F>(&mut self, mut callback: F) where F: FnMut(&mut CPU),{
         let ref opcodes: HashMap<u8, &'static opcodes::OPCode> = *opcodes::OPCodes_MAP;
 
         loop {
+            callback(self);
+
             let code = self.mem_read(self.register_pc);
             self.register_pc += 1;
             let program_counter_state = self.register_pc;
@@ -166,6 +172,9 @@ impl CPU {
                 /* INC */ 0xe6 | 0xf6 | 0xee | 0xfe =>                              self.inc(&opcode.mode),
                 /* INX */ 0xe8 =>                                                   self.inx(),
                 /* INY */ 0xc8 =>                                                   self.iny(),
+                /* JMP */ 0x4c =>                                                   self.jmp_abs(),
+                /* JMP */ 0x6c =>                                                   self.jmp_ind(),
+                /* JSR */ 0x20 =>                                                   self.jsr(),
                 /* LDA */ 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 =>  self.lda(&opcode.mode),
                 /* LDX */ 0xa2 | 0xa6 | 0xb6 | 0xae | 0xbe =>                       self.ldx(&opcode.mode),
                 /* LDY */ 0xa0 | 0xa4 | 0xb4 | 0xac | 0xbc =>                       self.ldy(&opcode.mode),
@@ -196,7 +205,7 @@ impl CPU {
                 /* TXA */ 0x8a =>                                                   self.txa(),
                 /* TXS */ 0x9a =>                                                   self.txs(),
                 /* TYA */ 0x98 =>                                                   self.tya(),
-                _ => todo!("Implement Jump Instructions"),
+                _ => todo!("Missing Opcode"),
             }
 
             if program_counter_state == self.register_pc {
