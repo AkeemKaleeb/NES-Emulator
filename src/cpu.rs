@@ -108,7 +108,7 @@ impl CPU {
         }
     }
 
-    // Set Flags from result
+    // Set Zero and Negative Flags from result
     fn update_flags(&mut self, result: u8) {
         // Set Zero
         self.flags.set_zero(result == 0);
@@ -267,16 +267,16 @@ impl CPU {
         self.run();
     }
 
+    /*                       */
+    /* Opcode Helper Methods */
+    /*                       */
+
     // Add Register A a value and set flags
     // Helper Method for ADC and SBC
     fn add_to_reg_a(&mut self, data: u8) {
         let sum = self.register_a as u16
             + data as u16 
-            + (if self.flags.carry() { 
-                1 
-            } else {
-                0
-            }) as u16;
+            + self.flags.carry() as u16;
         
         let carry = sum > 0xFF;
         self.flags.set_carry(carry);
@@ -288,7 +288,28 @@ impl CPU {
         self.update_flags(self.register_a);
     }
 
+    // Branch function to change program counter based on conditions
+    fn branch(&mut self, condition: bool) {
+        if condition {
+            let displacement: i8 = self.mem_read(self.register_pc) as i8;
+            let addr = self.register_pc.wrapping_add(1).wrapping_add(displacement as u16);
+
+            self.register_pc = addr;
+        }
+    }
+
+    // Compare register with a byte of memory
+    fn compare(&mut self, mode: &AddressingMode, compare_with: u8) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.flags.set_carry(compare_with >= data);
+        self.update_flags(compare_with.wrapping_sub(data));
+    }
+
+    /*           */
     /*  Opcodes  */
+    /*           */
 
     // Add value to register A with the carry bit
     fn adc(&mut self, mode: &AddressingMode) {
@@ -300,67 +321,87 @@ impl CPU {
 
     // Logical AND performed bit by bit on the A Register using a byte of memory
     fn and(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+        self.register_a = self.register_a & value;
+
+        self.update_flags(self.register_a);
     }
 
     // Shift all bits of the A Register one bit left
     fn asl_a(&mut self) {
+        let mut data = self.register_a;
+        self.flags.set_carry(data >> 7 == 1);
 
+        data = data << 1;
+        self.register_a = data;
     }
 
     // Shift all bits of the Memory contents one bit left
     fn asl(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let mut data = self.mem_read(addr);
+        self.flags.set_carry(data >> 7 == 1);
+
+        data = data << 1;
+        self.mem_write(addr, data);
+        self.update_flags(data);
     }
 
     // Branch if the carry flag is not set
     fn bcc(&mut self) {
-        //self.branch(!self.status.contains(CpuFlags::CARRY));
+        self.branch(!self.flags.carry());
     }
 
     // Branch if the carry flag is set
     fn bcs(&mut self) {
-        //self.branch(self.status.contains(CpuFlags::CARRY));
+        self.branch(self.flags.carry());
     }
 
     // Branch if the result is Equal
     fn beq(&mut self) {
-        //self.branch(self.status.contains(CpuFlags::ZERO));
+        self.branch(self.flags.zero());
     }
 
     // Test if one or more bits are set at a memory location
     fn bit(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        let and = self.register_a & data;
+
+        self.flags.set_zero(and == 0);
+        self.flags.set_negative(data & 0b1000_0000 > 0);
+        self.flags.set_overflow(data & 0b0100_0000 > 0);
     }
 
     // Branch if the result is negative
     fn bmi(&mut self) {
-        //self.branch(self.status.contains(CpuFlags::NEGATIV));
+        self.branch(self.flags.negative());
     }
 
     // Branch if the result is not equal
     fn bne(&mut self) {
-        //self.branch(!self.status.contains(CpuFlags::ZERO));
+        self.branch(!self.flags.zero());
     }
 
     // Branch if the result is positve
     fn bpl(&mut self) {
-        //self.branch(!self.status.contains(CpuFlags::NEGATIV));
+        self.branch(!self.flags.negative());
     }
 
     // Force the generation of an interrupt request, pushing status to the stack and loading IRQ interrupt vector at $FFFE/F in the PC
     fn brk(&mut self) {
-        todo!();
+        todo!("Implement Stack");
     }
 
     // Branch if the overflow is not set adding a displacement to the program counter
     fn bvc(&mut self) {
-        //self.branch(!self.status.contains(CpuFlags::OVERFLOW));
+        self.branch(!self.flags.overflow());
     }
 
     // Branch if the overflow is set adding a displacement to the program counter
     fn bvs(&mut self) {
-        //self.branch(self.status.contains(CpuFlags::OVERFLOW));
+        self.branch(self.flags.overflow());
     }
 
     // Set Carry Flag to False
@@ -385,42 +426,54 @@ impl CPU {
 
     // Compare the A Register with another byte of memory
     fn cmp(&mut self, mode: &AddressingMode) {
-        todo!();
+        self.compare(mode, self.register_a);
     }
 
     // Compare the X Register with another byte of memory
     fn cpx(&mut self, mode: &AddressingMode) {
-        todo!();
+        self.compare(mode, self.register_x);
     }
 
     // Compare the Y Register with another byte of memory
     fn cpy(&mut self, mode: &AddressingMode) {
-        todo!();
+        self.compare(mode, self.register_y);
     }
 
     // Decrement the value of a byte in memory
     fn dec(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr).wrapping_sub(1);
+        self.mem_write(addr, data);
+        self.update_flags(data)
     }
 
     // Decrement the X Register
     fn dex(&mut self) {
-        todo!();
+        self.register_x = self.register_x.wrapping_sub(1);
+        self.update_flags(self.register_x)
     }
 
     // Decrement the Y Register
     fn dey(&mut self) {
-        todo!();
+        self.register_y = self.register_y.wrapping_sub(1);
+        self.update_flags(self.register_y)
     }
 
     // Exclusive OR performed bit by bit on the A register using a byte of memory
     fn eor(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.register_a = self.register_a ^ data;
+        self.update_flags(self.register_a);
     }
 
     // Increment the value stored at a specific memory location
     fn inc(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr).wrapping_add(1);
+        self.mem_write(addr, data);
+        self.update_flags(data)
     }
 
     // Increment X Register
@@ -431,17 +484,33 @@ impl CPU {
 
     // Increment Y Register
     fn iny(&mut self) {
-        todo!();
+        self.register_y = self.register_y.wrapping_sub(1);
+        self.update_flags(self.register_y)
     }
 
     // Jump to a specific program counter address
-    fn jmp(&mut self) {
-        todo!();
+    fn jmp_abs(&mut self) {
+        let addr = self.mem_read_16(self.register_pc);
+        self.register_pc = addr;
+    }
+
+    // Jump to a specific program counter address
+    fn jmp_ind(&mut self) {
+        let addr = self.mem_read_16(self.register_pc);
+
+        // Fixes a bug on older CPUs
+        let indirect_ref = if addr & 0x00FF == 0x00FF {
+            let lo = self.mem_read(addr);
+            let hi = self.mem_read(addr & 0xFF00);
+            (hi as u16) << 8 | (lo as u16)
+        } else {self.mem_read_16(addr)};
+
+        self.register_pc = indirect_ref;
     }
 
     // Jump to the subroutine and store current address on the stack
     fn jsr(&mut self) {
-        todo!();
+        todo!("Implement Stack");
     }
     
     // Load the A register using a byte of memory
@@ -456,22 +525,43 @@ impl CPU {
 
     // Load the X Register using a byte of memory
     fn ldx(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+
+        self.register_x = value;
+
+        self.update_flags(self.register_x);
     }
 
     // Load the Y Register using a byte of memory
     fn ldy(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+
+        self.register_y = value;
+
+        self.update_flags(self.register_y);
     }
 
     // Logical Shift A Register bits right one place
     fn lsr_a(&mut self) {
-        todo!();
+        let data = self.register_a;
+        self.flags.set_carry(data & 1 == 1);
+
+        self.register_a = data >> 1;
+        self.update_flags(self.register_a);
+
     }
 
     // Logical Shift bits right one place
     fn lsr(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let mut data = self.mem_read(addr);
+        self.flags.set_carry(data & 1 == 1);
+
+        data = data >> 1;
+        self.mem_write(addr, data);
+        self.update_flags(data);
     }
 
     // No Operation, do nothing
@@ -481,7 +571,11 @@ impl CPU {
 
     // Logical OR performed bit by bit on the A Register using a byte of memory
     fn ora(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.register_a = self.register_a | data;
+        self.update_flags(self.register_a);
     }
 
     // Push A Register to the stack
@@ -492,7 +586,7 @@ impl CPU {
 
     // Push a copy of the status flags onto the stack
     fn php(&mut self) {
-        todo!();
+        todo!("Implement Stack");
     }
 
     // Pull an 8 bit value from the stack into the A register
@@ -507,22 +601,60 @@ impl CPU {
 
     // Rotate A Register bits to the left
     fn rol_a(&mut self) {
-        todo!();
+        let mut data = self.register_a;
+        let old_carry = self.flags.carry() as u8;
+
+        self.flags.set_carry(data >> 7 == 1);
+        data = data << 1;
+        data = data | old_carry;
+
+        self.register_a = data;
+        self.update_flags(self.register_a);
     }
 
     // Rotate bits to the left
     fn rol(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let mut data = self.mem_read(addr);
+        let old_carry = self.flags.carry() as u8;
+
+        self.flags.set_carry(data >> 7 == 1);
+        data = data << 1;
+        data = data | old_carry;
+
+        self.mem_write(addr, data);
+        self.update_flags(data);
     }
 
     // Rotate A Register bits to the Right
     fn ror_a(&mut self) {
-        todo!();
+        let mut data = self.register_a;
+        let old_carry = self.flags.carry();
+
+        self.flags.set_carry(data & 1 == 1);
+        data = data >> 1;
+        if old_carry {
+            data = data | 0b1000_0000;
+        }
+
+        self.register_a = data;
+        self.update_flags(self.register_a);
     }
 
     // Rotate bits to the right
     fn ror(&mut self, mode: &AddressingMode) {
-        todo!();
+        let addr = self.get_operand_address(mode);
+        let mut data = self.mem_read(addr);
+        let old_carry = self.flags.carry();
+
+        self.flags.set_carry(data & 1 == 1);
+        data = data >> 1;
+        if old_carry {
+            data = data | 0b1000_0000;
+        }
+
+        self.mem_write(addr, data);
+        self.update_flags(data);
     }
 
     // Return from an Interrupt processing routine to the address stored on the stack
@@ -570,11 +702,13 @@ impl CPU {
         self.mem_write(addr, self.register_a);
     }
 
+    // Store X Register at address
     fn stx(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_x);
     }
 
+    // Store Y Register at address
     fn sty(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_y);
@@ -695,4 +829,13 @@ mod test {
 
        assert_eq!(cpu.register_a, 0x55);
    }
+
+   #[test]
+    fn test_adc() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0x38, 0xa9, 0x05, 0x69, 0x05, 0x00]);
+
+        assert_eq!(cpu.register_a, 0x0B);
+        assert_eq!(cpu.flags.carry(), false);
+    }
 }
