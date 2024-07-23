@@ -212,6 +212,125 @@ impl CPU {
 
 
     /*  Opcodes  */
+
+    fn adc(&mut self) {
+        todo!();
+    }
+
+    fn and(&mut self) {
+        todo!();
+    }
+
+    fn asl(&mut self) {
+        todo!();
+    }
+
+    fn bcc(&mut self) {
+        todo!();
+    }
+
+    fn bcs(&mut self) {
+        todo!();
+    }
+
+    fn beq(&mut self) {
+        todo!();
+    }
+
+    fn bit(&mut self) {
+        todo!();
+    }
+
+    fn bmi(&mut self) {
+        todo!();
+    }
+
+    fn bne(&mut self) {
+        todo!();
+    }
+
+    fn bpl(&mut self) {
+        todo!();
+    }
+
+    fn brk(&mut self) {
+        todo!();
+    }
+
+    fn bvc(&mut self) {
+        todo!();
+    }
+
+    fn bvs(&mut self) {
+        todo!();
+    }
+
+    fn clc(&mut self) {
+        todo!();
+    }
+
+    fn cld(&mut self) {
+        todo!();
+    }
+
+    fn cli(&mut self) {
+        todo!();
+    }
+
+    fn clv(&mut self) {
+        todo!();
+    }
+
+    fn cmp(&mut self) {
+        todo!();
+    }
+
+    fn cpx(&mut self) {
+        todo!();
+    }
+
+    fn cpy(&mut self) {
+        todo!();
+    }
+
+    fn dec(&mut self) {
+        todo!();
+    }
+
+    fn dex(&mut self) {
+        todo!();
+    }
+
+    fn dey(&mut self) {
+        todo!();
+    }
+
+    fn eor(&mut self) {
+        todo!();
+    }
+
+    fn inc(&mut self) {
+        todo!();
+    }
+
+    // Increment X Register
+    fn inx(&mut self) {
+        self.register_x = self.register_x.wrapping_add(1);
+        self.update_flags(self.register_x);
+    }
+
+    fn iny(&mut self) {
+        todo!();
+    }
+
+    fn jmp(&mut self) {
+        todo!();
+    }
+
+    fn jsr(&mut self) {
+        todo!();
+    }
+    
     // Load value into the A register
     fn lda(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
@@ -222,22 +341,112 @@ impl CPU {
         self.update_flags(self.register_a);
     }
 
-    // Copy value from A to X
-    fn tax(&mut self) {
-        self.register_x = self.register_a;
-        self.update_flags(self.register_x);
+    fn ldx(&mut self) {
+        todo!();
     }
 
-    // Increment X Register
-    fn inx(&mut self) {
-        self.register_x = self.register_x.wrapping_add(1);
-        self.update_flags(self.register_x);
+    fn ldy(&mut self) {
+        todo!();
+    }
+
+    fn lsr(&mut self) {
+        todo!();
+    }
+
+    fn nop(&mut self) {
+        todo!();
+    }
+
+    fn ora(&mut self) {
+        todo!();
+    }
+
+    fn pha(&mut self) {
+        todo!();
+    }
+
+    fn php(&mut self) {
+        todo!();
+    }
+
+    fn pla(&mut self) {
+        todo!();
+    }
+
+    fn plp(&mut self) {
+        todo!();
+    }
+
+    fn rol(&mut self) {
+        todo!();
+    }
+
+    fn ror(&mut self) {
+        todo!();
+    }
+
+    fn rti(&mut self) {
+        todo!();
+    }
+
+    fn rts(&mut self) {
+        todo!();
+    }
+
+    fn sbc(&mut self) {
+        todo!();
+    }
+
+    fn sec(&mut self) {
+        todo!();
+    }
+
+    fn sed(&mut self) {
+        todo!();
+    }
+
+    fn sei(&mut self) {
+        todo!();
     }
 
     // Copy value from A to memory
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
+    }
+
+    fn stx(&mut self) {
+        todo!();
+    }
+
+    fn sty(&mut self) {
+        todo!();
+    }
+
+    // Copy value from A to X
+    fn tax(&mut self) {
+        self.register_x = self.register_a;
+        self.update_flags(self.register_x);
+    }
+
+    fn tay(&mut self) {
+        todo!();
+    }
+
+    fn tsx(&mut self) {
+        todo!();
+    }
+
+    fn txa(&mut self) {
+        todo!();
+    }
+
+    fn txs(&mut self) {
+        todo!();
+    }
+
+    fn tya(&mut self) {
+        todo!();
     }
 }
 
