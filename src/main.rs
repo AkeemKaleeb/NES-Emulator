@@ -35,16 +35,16 @@ fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
-        .window("Snake Game", WIDTH * 10 as u32, HEIGHT * 10 as u32)
+        .window("NES Test", WIDTH * 10 as u32, HEIGHT * 10 as u32)
         .position_centered()
         .build().unwrap();
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    //let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut event_pump = sdl_context.event_pump().unwrap();
     canvas.set_scale(10.0, 10.0).unwrap();
 
     // Render Texture
-    //let creator = canvas.texture_creator();
-    //let mut texture = creator.create_texture_target(PixelFormatEnum::RGB24, WIDTH, HEIGHT).unwrap();
+    let creator = canvas.texture_creator();
+    let mut texture = creator.create_texture_target(PixelFormatEnum::RGB24, WIDTH, HEIGHT).unwrap();
 
     // Load Game
     let bytes: Vec<u8> = std::fs::read("nestest.nes").unwrap();
@@ -53,6 +53,7 @@ fn main() {
     let bus = bus::Bus::new(rom);
     let mut cpu = cpu::CPU::new(bus);
     cpu.reset();
+    cpu.register_pc = 0xC000;
 
     //let mut screen_state = [0 as u8; (WIDTH * 3 * HEIGHT) as usize];
     //let mut rng = rand::thread_rng();
@@ -66,9 +67,9 @@ fn main() {
             texture.update(None, &screen_state, 32 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
-        }
+        }*/
 
-        ::std::thread::sleep(std::time::Duration::new(0, 70_000));*/
+        //::std::thread::sleep(std::time::Duration::new(0, 70_000));
     });
     
 }

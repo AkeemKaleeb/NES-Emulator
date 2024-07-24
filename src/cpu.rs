@@ -284,21 +284,25 @@ impl CPU {
     // Subtract a value from the A Register
     fn sub_from_reg_a(&mut self, data: u8) {
         self.add_to_reg_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8);
+        self.update_flags(self.register_a);
     }
 
     // AND a value with the A Register
     fn and_with_reg_a(&mut self, data: u8) {
         self.register_a = data & self.register_a;
+        self.update_flags(self.register_a);
     }
 
     // OR a value with the A Register
     fn or_with_reg_a(&mut self, data: u8) {
         self.register_a = data | self.register_a;
+        self.update_flags(self.register_a);
     }
 
     // XOR a value with the A Register
     fn xor_with_reg_a(&mut self, data: u8) {
         self.register_a = data ^ self.register_a;
+        self.update_flags(self.register_a);
     }
 
     // Branch function to change program counter based on conditions
@@ -446,6 +450,7 @@ impl CPU {
 
         data = data << 1;
         self.register_a = data;
+        self.update_flags(self.register_a);
     }
 
     // Shift all bits of the Memory contents one bit left
@@ -601,7 +606,7 @@ impl CPU {
 
     // Increment Y Register
     fn iny(&mut self) {
-        self.register_y = self.register_y.wrapping_sub(1);
+        self.register_y = self.register_y.wrapping_add(1);
         self.update_flags(self.register_y)
     }
 
@@ -638,7 +643,6 @@ impl CPU {
         let value = self.mem_read(addr);
 
         self.register_a = value;
-
         self.update_flags(self.register_a);
     }
 
@@ -716,6 +720,7 @@ impl CPU {
     fn pla(&mut self) {
         let data = self.stack_pop();
         self.register_a = data;
+        self.update_flags(self.register_a);
     }
 
     // Pull an 8 bit value from the stack into the processor flags
@@ -976,6 +981,7 @@ impl CPU {
         let data = self.mem_read(addr);
         self.register_a = data;
         self.register_x = self.register_a;
+        self.update_flags(self.register_a);
     }
     
     // Load A and transfer to X
@@ -1009,7 +1015,7 @@ impl CPU {
     
     // Store A AND X into addr
     fn usax(&mut self, mode: &AddressingMode) {
-        let data = self.register_a * self.register_x;
+        let data = self.register_a & self.register_x;
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, data);
     }
