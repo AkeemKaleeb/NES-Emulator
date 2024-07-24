@@ -39,12 +39,12 @@ fn main() {
         .position_centered()
         .build().unwrap();
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    //let mut event_pump = sdl_context.event_pump().unwrap();
     canvas.set_scale(10.0, 10.0).unwrap();
 
     // Render Texture
-    let creator = canvas.texture_creator();
-    let mut texture = creator.create_texture_target(PixelFormatEnum::RGB24, WIDTH, HEIGHT).unwrap();
+    //let creator = canvas.texture_creator();
+    //let mut texture = creator.create_texture_target(PixelFormatEnum::RGB24, WIDTH, HEIGHT).unwrap();
 
     // Load Game
     let bytes: Vec<u8> = std::fs::read("nestest.nes").unwrap();
@@ -54,8 +54,8 @@ fn main() {
     let mut cpu = cpu::CPU::new(bus);
     cpu.reset();
 
-    let mut screen_state = [0 as u8; (WIDTH * 3 * HEIGHT) as usize];
-    let mut rng = rand::thread_rng();
+    //let mut screen_state = [0 as u8; (WIDTH * 3 * HEIGHT) as usize];
+    //let mut rng = rand::thread_rng();
 
     cpu.run_with_callback(move |cpu| {
         println!("{}", trace::trace(cpu));
