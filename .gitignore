@@ -1,1 +1,5 @@
 /target
+/diff.log
+/mynes.log
+/nestest.nes
+/nestest_no_cycle.log
